@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "60049980263",
+    "project_id": "devjam-d4155",
+    "storage_bucket": "devjam-d4155.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:60049980263:android:a4ff7fc33feae6ca9d0dc2",
+        "android_client_info": {
+          "package_name": "com.gdg.devjam_tw2025"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmjeFi5MtGhPcXk6IZvjBUOvvdErkjZ8w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
