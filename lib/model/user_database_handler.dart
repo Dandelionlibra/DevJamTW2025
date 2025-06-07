@@ -26,7 +26,7 @@ class UserDatabaseHandler {
   static Future<UserModel?> getUserProfile(String uid) async {
     final url = Uri.parse(getDatabaseUrl);
     final response = await HttpClient().getUrl(
-      Uri.https(getDatabaseUrl, '', {'uid': uid}),
+      Uri.https(url.toString(), '', {'uid': uid}),
     );
     final HttpClientResponse httpResponse = await response.close();
     if (httpResponse.statusCode == 200) {
