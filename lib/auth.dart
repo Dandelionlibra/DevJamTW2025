@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'model/user_model.dart';
 import 'model/user_database_handler.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 enum Errorlog {
@@ -32,7 +31,6 @@ class AuthModel extends ChangeNotifier {
         username: user?.displayName ?? '',
         firebaseUser: user!,
         email: user.email ?? '',
-        preferences: UserPreferences(),
       );
       notifyListeners();
     });
@@ -93,17 +91,6 @@ class AuthModel extends ChangeNotifier {
       );
       UserCredential result = await auth.signInWithCredential(credential);
       await user?.updateDisplayName(username);
-
-      FirebaseFirestore storage = FirebaseFirestore.instance;
-      await storage.collection("userperference").doc(_user!.uid).set({
-        'username': username,
-        'email': email,
-        'travelStyles': [],
-        'locationTypes': [],
-        'accommodationTypes': [],
-        'avoidTypes': [],
-      });
-
       notifyListeners();
       Navigator.pop(context);
     } catch (e) {
@@ -136,14 +123,6 @@ class AuthModel extends ChangeNotifier {
       return _user!.uid;
     } else {
       return 'unknown';
-    }
-  }
-
-  UserPreferences? getUserPreferences() {
-    if (_userModel != null) {
-      return _userModel!.preferences;
-    } else {
-      return UserPreferences();
     }
   }
 }

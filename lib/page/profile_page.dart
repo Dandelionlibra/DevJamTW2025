@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'all_page.dart'; // 匯入所有頁面
 import 'package:provider/provider.dart';
-import 'package:Wandering/auth.dart';
+import 'package:devjam_tw2025/auth.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({Key? key}) : super(key: key);

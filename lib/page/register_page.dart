@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:Wandering/auth.dart';
+import 'package:devjam_tw2025/auth.dart';
 import 'all_page.dart'; // 匯入所有頁面
 
 class Register extends StatefulWidget {
@@ -36,12 +36,17 @@ class _RegisterState extends State<Register> {
               children: [
                 // const SizedBox(height: 40),
                 // Logo 圖示
-                Image.asset('assets/images/wandering_5.PNG', height: 200, width: 200),
+                Image.asset(
+                  'assets/images/wandering_5.PNG',
+                  height: 200,
+                  width: 200,
+                ),
                 const SizedBox(height: 10),
                 // const SizedBox(height: 30),
                 const Text(
                   // 歡迎加入 Wandering\n
-                  '給自己一個開始，\n也給風景一個機會遇見你。', textAlign: TextAlign.center, // 文字置中
+                  '給自己一個開始，\n也給風景一個機會遇見你。',
+                  textAlign: TextAlign.center, // 文字置中
                   style: TextStyle(
                     fontFamily: 'ChenYuluoyan', // 使用自定義字體
                     color: Color.fromARGB(255, 6, 48, 66),
@@ -88,10 +93,7 @@ class _RegisterState extends State<Register> {
                 // 註冊按鈕（漸層）
                 GestureDetector(
                   onTap: () {
-                    Provider.of<AuthModel>(
-                      context,
-                      listen: false,
-                    ).register(
+                    Provider.of<AuthModel>(context, listen: false).register(
                       context,
                       userNameController.text,
                       userEmailController.text,
