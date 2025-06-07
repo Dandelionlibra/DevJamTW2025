@@ -49,7 +49,7 @@ class AuthModel extends ChangeNotifier {
   Future<LoginError> login(String email, String password) async {
     try {
       await auth.signInWithEmailAndPassword(email: email, password: password);
-      _userModel = await UserDatabaseHandler.instance.getUser(user!.uid);
+      _userModel = await UserDatabaseHandler.getUserProfile(user!.uid);
       return LoginError(Errorlog.success, 'Login successful');
     } catch (e) {
       if (e is FirebaseAuthException) {
