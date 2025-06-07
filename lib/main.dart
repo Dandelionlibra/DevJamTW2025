@@ -1,9 +1,29 @@
+import 'dart:io';
+import 'package:devjam_tw2025/pages/login_page.dart';
 import 'package:flutter/material.dart';
-import 'data/today data.dart'; // 導入分離的資料庫檔案
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+import 'auth.dart';
+import 'data/today data.dart';
+import 'pages/food_record.dart';
+import 'pages/fitness_record.dart';
+import 'pages/exposure_trend.dart';
+import 'pages/pollution_distribution.dart';
+import 'pages/traffic_record.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+  await Firebase.initializeApp();
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthModel()),
+      ],
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -65,7 +85,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _initializeAndLoadData() async {
     try {
-      await ExposureDatabase.instance.clearOldRecords();
       await _loadRecords();
     } catch (e) {
       print('初始化數據失敗: $e');
@@ -73,15 +92,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadRecords() async {
-    try {
-      final records = await ExposureDatabase.instance.getTodaysRecords();
-      if (mounted) {
-        setState(() {
-          _todaysRecords = records;
-        });
-      }
-    } catch (e) {
-      print('載入紀錄失敗: $e');
+    // Placeholder: Replace with API call if records are fetched from server
+    if (mounted) {
+      setState(() {
+        _todaysRecords = []; // Clear or fetch from server if implemented
+      });
     }
   }
 
@@ -96,13 +111,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       PollutionExposureScreen(
         records: _todaysRecords,
         onDelete: _deleteRecord,
+        onEdit: _editRecord,
       ),
       const ExposureTrendScreen(),
       const FoodRecordScreen(),
       const TrafficRecordScreen(),
       const FitnessRecordScreen(),
       const PollutionDistributionScreen(),
-      const Center(child: Text("行為建議頁面")),
+      const LoginPage(),
     ];
   }
 
@@ -118,14 +134,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _showAddTaskDialog() {
     String? dialogCategory;
-    final activityController = TextEditingController();
-    final pollutionController = TextEditingController();
+    final noteController = TextEditingController();
+    final transportModeController = TextEditingController();
+    final exerciseLocationController = TextEditingController();
+    final durationController = TextEditingController();
+    String? intensity;
+    String? imagePath;
+
+    final ImagePicker _picker = ImagePicker();
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
-          builder: (BuildContext context, setDialogState) {
+          builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
               title: const Text('新增紀錄'),
               content: SingleChildScrollView(
@@ -159,15 +181,73 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    TextField(
-                      controller: activityController,
-                      decoration: const InputDecoration(labelText: '輸入食物·活動量'),
-                    ),
-                    TextField(
-                      controller: pollutionController,
-                      decoration: const InputDecoration(labelText: '污染暴露量 (μg)'),
-                      keyboardType: TextInputType.number,
-                    ),
+                    if (dialogCategory != null) ...[
+                      TextField(
+                        controller: noteController,
+                        decoration: InputDecoration(
+                          labelText: dialogCategory == '食物' ? '輸入食物·活動量' :
+                          dialogCategory == '健身' ? '輸入健身活動量' : '輸入活動名稱',
+                        ),
+                        keyboardType: TextInputType.text,
+                      ),
+                      if (dialogCategory == '交通')
+                        TextField(
+                          controller: transportModeController,
+                          decoration: const InputDecoration(labelText: '交通方式'),
+                          keyboardType: TextInputType.text,
+                        ),
+                      if (dialogCategory == '健身')
+                        TextField(
+                          controller: exerciseLocationController,
+                          decoration: const InputDecoration(labelText: '運動地點'),
+                          keyboardType: TextInputType.text,
+                        ),
+                      if (dialogCategory == '健身' || dialogCategory == '交通')
+                        TextField(
+                          controller: durationController,
+                          decoration: const InputDecoration(labelText: '持續時間 (分鐘)'),
+                          keyboardType: TextInputType.number,
+                        ),
+                      if (dialogCategory == '健身')
+                        DropdownButton<String>(
+                          value: intensity,
+                          hint: const Text('選擇運動強度'),
+                          items: const [
+                            DropdownMenuItem(value: '低', child: Text('低')),
+                            DropdownMenuItem(value: '中', child: Text('中')),
+                            DropdownMenuItem(value: '高', child: Text('高')),
+                          ],
+                          onChanged: (value) {
+                            setDialogState(() {
+                              intensity = value;
+                            });
+                          },
+                        ),
+                      if (dialogCategory == '食物')
+                        ElevatedButton(
+                          onPressed: () async {
+                            final XFile? pickedImage = await _picker.pickImage(source: ImageSource.gallery);
+                            if (pickedImage != null) {
+                              setDialogState(() {
+                                imagePath = pickedImage.path;
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('圖片選擇成功')),
+                              );
+                            }
+                          },
+                          child: const Text('上傳圖片或拍照'),
+                        ),
+                      if (dialogCategory == '食物' && imagePath != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Image.file(
+                            File(imagePath!),
+                            height: 100,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                    ],
                   ],
                 ),
               ),
@@ -178,30 +258,46 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    final activity = activityController.text;
-                    final exposureStr = pollutionController.text;
+                    final note = noteController.text.trim();
+                    final transportMode = transportModeController.text.trim();
+                    final exerciseLocation = exerciseLocationController.text.trim();
+                    final duration = int.tryParse(durationController.text.trim());
 
-                    if (dialogCategory != null &&
-                        activity.isNotEmpty &&
-                        exposureStr.isNotEmpty) {
+                    if (dialogCategory != null && note.isNotEmpty) {
                       final newRecord = ExposureRecord(
-                        category: dialogCategory!,
-                        activity: activity,
-                        exposure: int.tryParse(exposureStr) ?? 0,
-                        date: DateTime.now().toIso8601String().substring(0, 10),
+                        uid: 'user123', // Replace with actual UID from AuthModel or Firebase
+                        eventType: dialogCategory!,
+                        note: note,
+                        transportMode: dialogCategory == '交通' ? transportMode : null,
+                        startTime: DateTime.now().toIso8601String(),
+                        endTime: null, // Can be set if end time is needed
+                        exerciseLocation: dialogCategory == '健身' ? exerciseLocation : null,
+                        intensity: dialogCategory == '健身' ? intensity : null,
+                        durationMinutes: (dialogCategory == '健身' || dialogCategory == '交通') ? duration : null,
+                        imagePath: dialogCategory == '食物' ? imagePath : null, // Added imagePath
                       );
-                      await ExposureDatabase.instance.addRecord(newRecord);
-                      await _loadRecords();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('新增成功: ${newRecord.category} - ${newRecord.activity}')),
-                        );
-                        Navigator.pop(context);
+                      try {
+                        await ExposureRecord.addRecord(newRecord);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('新增成功: ${newRecord.eventType} - ${newRecord.note}')),
+                          );
+                          Navigator.pop(context);
+                        }
+                      } catch (e) {
+                        print('Debug - Webhook Error: $e');
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('新增失敗，請檢查輸入或重試')),
+                          );
+                        }
                       }
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('請填寫所有字段')),
-                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('請填寫所有必要字段')),
+                        );
+                      }
                     }
                   },
                   child: const Text('新增'),
@@ -212,18 +308,210 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       },
     ).then((_) {
-      activityController.dispose();
-      pollutionController.dispose();
+      Future.delayed(const Duration(milliseconds: 100), () {
+        noteController.dispose();
+        transportModeController.dispose();
+        exerciseLocationController.dispose();
+        durationController.dispose();
+      });
+    });
+  }
+
+  void _showEditTaskDialog(ExposureRecord record) {
+    final noteController = TextEditingController(text: record.note ?? '');
+    final transportModeController = TextEditingController(text: record.transportMode ?? '');
+    final exerciseLocationController = TextEditingController(text: record.exerciseLocation ?? '');
+    final durationController = TextEditingController(
+      text: record.durationMinutes?.toString() ?? '',
+    );
+    String? intensity = record.intensity;
+    String? imagePath = record.imagePath; // Fixed: Now valid due to added imagePath
+
+    final ImagePicker _picker = ImagePicker();
+    String selectedCategory = record.eventType;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return AlertDialog(
+              title: const Text('編輯紀錄'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: selectedCategory == '食物' ? null : () => setDialogState(() => selectedCategory = '食物'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: selectedCategory == '食物' ? Colors.orangeAccent : null,
+                            foregroundColor: selectedCategory == '食物' ? Colors.white : null,
+                          ),
+                          child: const Icon(Icons.restaurant),
+                        ),
+                        ElevatedButton(
+                          onPressed: selectedCategory == '交通' ? null : () => setDialogState(() => selectedCategory = '交通'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: selectedCategory == '交通' ? Colors.orangeAccent : null,
+                            foregroundColor: selectedCategory == '交通' ? Colors.white : null,
+                          ),
+                          child: const Icon(Icons.directions_car),
+                        ),
+                        ElevatedButton(
+                          onPressed: selectedCategory == '健身' ? null : () => setDialogState(() => selectedCategory = '健身'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: selectedCategory == '健身' ? Colors.orangeAccent : null,
+                            foregroundColor: selectedCategory == '健身' ? Colors.white : null,
+                          ),
+                          child: const Icon(Icons.fitness_center),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: noteController,
+                      decoration: InputDecoration(
+                        labelText: selectedCategory == '食物' ? '輸入食物·活動量' :
+                        selectedCategory == '健身' ? '輸入健身活動量' : '輸入活動名稱',
+                      ),
+                      keyboardType: TextInputType.text,
+                    ),
+                    if (selectedCategory == '交通')
+                      TextField(
+                        controller: transportModeController,
+                        decoration: const InputDecoration(labelText: '交通方式'),
+                        keyboardType: TextInputType.text,
+                      ),
+                    if (selectedCategory == '健身')
+                      TextField(
+                        controller: exerciseLocationController,
+                        decoration: const InputDecoration(labelText: '運動地點'),
+                        keyboardType: TextInputType.text,
+                      ),
+                    if (selectedCategory == '健身' || selectedCategory == '交通')
+                      TextField(
+                        controller: durationController,
+                        decoration: const InputDecoration(labelText: '持續時間 (分鐘)'),
+                        keyboardType: TextInputType.number,
+                      ),
+                    if (selectedCategory == '健身')
+                      DropdownButton<String>(
+                        value: intensity,
+                        hint: const Text('選擇運動強度'),
+                        items: const [
+                          DropdownMenuItem(value: '低', child: Text('低')),
+                          DropdownMenuItem(value: '中', child: Text('中')),
+                          DropdownMenuItem(value: '高', child: Text('高')),
+                        ],
+                        onChanged: (value) {
+                          setDialogState(() {
+                            intensity = value;
+                          });
+                        },
+                      ),
+                    if (selectedCategory == '食物')
+                      ElevatedButton(
+                        onPressed: () async {
+                          final XFile? pickedImage = await _picker.pickImage(source: ImageSource.gallery);
+                          if (pickedImage != null) {
+                            setDialogState(() {
+                              imagePath = pickedImage.path;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('圖片選擇成功')),
+                            );
+                          }
+                        },
+                        child: const Text('上傳圖片或拍照'),
+                      ),
+                    if (selectedCategory == '食物' && imagePath != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Image.file(
+                          File(imagePath!),
+                          height: 100,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final note = noteController.text.trim();
+                    final transportMode = transportModeController.text.trim();
+                    final exerciseLocation = exerciseLocationController.text.trim();
+                    final duration = int.tryParse(durationController.text.trim());
+
+                    if (note.isNotEmpty) {
+                      final updatedRecord = ExposureRecord(
+                        uid: record.uid,
+                        eventType: selectedCategory,
+                        note: note,
+                        transportMode: selectedCategory == '交通' ? transportMode : null,
+                        startTime: record.startTime,
+                        endTime: record.endTime,
+                        exerciseLocation: selectedCategory == '健身' ? exerciseLocation : null,
+                        intensity: selectedCategory == '健身' ? intensity : null,
+                        durationMinutes: (selectedCategory == '健身' || selectedCategory == '交通') ? duration : null,
+                        imagePath: selectedCategory == '食物' ? imagePath ?? record.imagePath : null, // Updated
+                      );
+                      try {
+                        await ExposureRecord.addRecord(updatedRecord);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('編輯成功: ${updatedRecord.eventType} - ${updatedRecord.note}')),
+                          );
+                          Navigator.pop(context);
+                        }
+                      } catch (e) {
+                        print('Debug - Webhook Error: $e');
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('編輯失敗，請重試')),
+                          );
+                        }
+                      }
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('請填寫所有必要字段')),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('保存'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        noteController.dispose();
+        transportModeController.dispose();
+        exerciseLocationController.dispose();
+        durationController.dispose();
+      });
     });
   }
 
   Future<void> _deleteRecord(int id) async {
-    try {
-      await ExposureDatabase.instance.deleteRecord(id);
-      await _loadRecords();
-    } catch (e) {
-      print('刪除紀錄失敗: $e');
-    }
+    // Placeholder: Implement delete logic via Webhook if supported by the server
+    print('Delete record with id: $id');
+  }
+
+  void _editRecord(ExposureRecord record) {
+    _showEditTaskDialog(record);
   }
 
   void _onDrawerItemTapped(int index) {
@@ -232,7 +520,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _selectedIndex = index;
       });
     }
-    Navigator.pop(context); // 關閉 Drawer
+    Navigator.pop(context);
   }
 
   @override
@@ -263,22 +551,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 class PollutionExposureScreen extends StatelessWidget {
   final List<ExposureRecord> records;
   final Function(int) onDelete;
+  final Function(ExposureRecord) onEdit;
 
   const PollutionExposureScreen({
     super.key,
     required this.records,
     required this.onDelete,
+    required this.onEdit,
   });
 
   @override
   Widget build(BuildContext context) {
-    final double totalExposure = records.fold(0, (sum, item) => sum + item.exposure);
-    final double foodExposure = records.where((r) => r.category == '食物').fold(0, (sum, item) => sum + item.exposure);
-    final double trafficExposure = records.where((r) => r.category == '交通').fold(0, (sum, item) => sum + item.exposure);
-    final double fitnessExposure = records.where((r) => r.category == '健身').fold(0, (sum, item) => sum + item.exposure);
-    const double goal = 1000;
-    final double percentage = totalExposure / goal;
-
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -290,36 +573,6 @@ class PollutionExposureScreen extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           const SizedBox(height: 20),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 120,
-                height: 120,
-                child: CircularProgressIndicator(
-                  value: percentage > 1 ? 1.0 : percentage,
-                  strokeWidth: 12,
-                  backgroundColor: Colors.grey[300],
-                  valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
-                ),
-              ),
-              Text(
-                '${(percentage * 100).toStringAsFixed(1)}%',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black87),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '${totalExposure.toStringAsFixed(0)} μg / ${goal.toStringAsFixed(0)} μg',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 20),
-          Text(
-            '食物 ${foodExposure.toStringAsFixed(0)} μg  |  交通 ${trafficExposure.toStringAsFixed(0)} μg  |  健身 ${fitnessExposure.toStringAsFixed(0)} μg',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 20),
           Expanded(
             child: records.isEmpty
                 ? const Center(child: Text('今日尚無紀錄，點擊右下角按鈕新增。'))
@@ -328,7 +581,7 @@ class PollutionExposureScreen extends StatelessWidget {
               itemBuilder: (context, index) {
                 final record = records[index];
                 final IconData iconData;
-                switch (record.category) {
+                switch (record.eventType) {
                   case '食物':
                     iconData = Icons.restaurant;
                     break;
@@ -343,9 +596,14 @@ class PollutionExposureScreen extends StatelessWidget {
                 }
                 return ExposureCard(
                   icon: iconData,
-                  title: record.activity,
-                  subtitle: '暴露量: ${record.exposure} μg',
-                  onDelete: () => onDelete(record.id!),
+                  title: record.note ?? '無標題',
+                  subtitle: '${record.durationMinutes != null ? '時間: ${record.durationMinutes} 分鐘' : ''}'
+                      '${record.intensity != null ? ' | 強度: ${record.intensity}' : ''}'
+                      '${record.transportMode != null ? ' | 交通: ${record.transportMode}' : ''}'
+                      '${record.exerciseLocation != null ? ' | 地點: ${record.exerciseLocation}' : ''}'
+                      '${record.imagePath != null ? ' | 有圖片' : ''}', // Added imagePath check
+                  onDelete: () => onDelete(index), // Use index as placeholder
+                  onEdit: () => onEdit(record),
                 );
               },
             ),
@@ -361,6 +619,7 @@ class ExposureCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onDelete;
+  final VoidCallback onEdit;
 
   const ExposureCard({
     super.key,
@@ -368,6 +627,7 @@ class ExposureCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onDelete,
+    required this.onEdit,
   });
 
   @override
@@ -378,10 +638,20 @@ class ExposureCard extends StatelessWidget {
         leading: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 32),
         title: Text(title, style: Theme.of(context).textTheme.titleMedium),
         subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-          tooltip: '刪除紀錄',
-          onPressed: onDelete,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blueAccent),
+              tooltip: '編輯紀錄',
+              onPressed: onEdit,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              tooltip: '刪除紀錄',
+              onPressed: onDelete,
+            ),
+          ],
         ),
       ),
     );
@@ -503,45 +773,5 @@ class CustomDrawer extends StatelessWidget {
       selectedTileColor: Colors.blueGrey.withOpacity(0.1),
       onTap: () => onItemTapped(index),
     );
-  }
-}
-
-class ExposureTrendScreen extends StatelessWidget {
-  const ExposureTrendScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('暴露趨勢圖頁面'));
-  }
-}
-
-class FoodRecordScreen extends StatelessWidget {
-  const FoodRecordScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('食物紀錄頁面'));
-  }
-}
-
-class TrafficRecordScreen extends StatelessWidget {
-  const TrafficRecordScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('交通紀錄頁面'));
-  }
-}
-
-class FitnessRecordScreen extends StatelessWidget {
-  const FitnessRecordScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('健身紀錄頁面'));
-  }
-}
-
-class PollutionDistributionScreen extends StatelessWidget {
-  const PollutionDistributionScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text('汙染分布圖頁面'));
   }
 }

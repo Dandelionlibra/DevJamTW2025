@@ -1,118 +1,63 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart' as path; // 使用別名
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ExposureRecord {
-  final int? id;
-  final String category;
-  final String activity;
-  final int exposure;
-  final String date;
+  final String? uid;
+  final String eventType;
+  final String? note;
+  final String? transportMode;
+  final String startTime;
+  final String? endTime;
+  final String? exerciseLocation;
+  final String? intensity;
+  final int? durationMinutes;
+  final String? imagePath; // Added back imagePath
 
   ExposureRecord({
-    this.id,
-    required this.category,
-    required this.activity,
-    required this.exposure,
-    required this.date,
+    this.uid,
+    required this.eventType,
+    this.note,
+    this.transportMode,
+    required this.startTime,
+    this.endTime,
+    this.exerciseLocation,
+    this.intensity,
+    this.durationMinutes,
+    this.imagePath, // Added back
   });
 
-  factory ExposureRecord.fromMap(Map<String, dynamic> map) {
-    return ExposureRecord(
-      id: map['id'],
-      category: map['category'],
-      activity: map['activity'],
-      exposure: map['exposure'],
-      date: map['date'],
-    );
-  }
-
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'category': category,
-      'activity': activity,
-      'exposure': exposure,
-      'date': date,
+      'uid': uid,
+      'event_type': eventType,
+      'note': note,
+      'transport_mode': transportMode,
+      'start_time': startTime,
+      'end_time': endTime,
+      'exercise_location': exerciseLocation,
+      'intensity': intensity,
+      'duration_minutes': durationMinutes,
+      'image_path': imagePath, // Added to JSON
     };
   }
-}
 
-class ExposureDatabase {
-  static final ExposureDatabase instance = ExposureDatabase._init();
-  static Database? _database;
-
-  ExposureDatabase._init();
-
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('exposure.db');
-    return _database!;
-  }
-
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final databasePath = path.join(dbPath, filePath); // 使用 path 別名，變更變量名避免衝突
-    return await openDatabase(databasePath, version: 1, onCreate: _createDB);
-  }
-
-  Future _createDB(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE records (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        category TEXT NOT NULL,
-        activity TEXT NOT NULL,
-        exposure INTEGER NOT NULL,
-        date TEXT NOT NULL
-      )
-    ''');
-  }
-
-  Future<ExposureRecord> addRecord(ExposureRecord record) async {
-    final db = await instance.database;
-    final id = await db.insert('records', record.toMap());
-    return ExposureRecord(
-      id: id,
-      category: record.category,
-      activity: record.activity,
-      exposure: record.exposure,
-      date: record.date,
-    );
-  }
-
-  Future<List<ExposureRecord>> getTodaysRecords() async {
-    final db = await instance.database;
-    final today = DateTime.now().toIso8601String().substring(0, 10); // 2025-06-07
-    final result = await db.query(
-      'records',
-      where: 'date = ?',
-      whereArgs: [today],
-      orderBy: 'id DESC',
-    );
-    return result.map((json) => ExposureRecord.fromMap(json)).toList();
-  }
-
-  Future<int> deleteRecord(int id) async {
-    final db = await instance.database;
-    return await db.delete(
-      'records',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<void> clearOldRecords() async {
-    final db = await instance.database;
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    final count = await db.delete(
-      'records',
-      where: 'date != ?',
-      whereArgs: [today],
-    );
-    print('已清除 $count 筆舊紀錄。');
-  }
-
-  Future close() async {
-    final db = await instance.database;
-    db.close();
+  static Future<void> addRecord(ExposureRecord record) async {
+    const url = 'https://n8n.ja-errorpro.codes/webhook/b04f3c8e-6a65-4d75-a573-4820e3c35a5b';
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(record.toJson()),
+      );
+      if (response.statusCode == 200) {
+        print('Record added successfully');
+      } else {
+        print('Failed to add record: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to add record');
+      }
+    } catch (e) {
+      print('Error adding record: $e');
+      throw Exception('Error adding record: $e');
+    }
   }
 }

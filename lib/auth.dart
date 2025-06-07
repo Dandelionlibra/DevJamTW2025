@@ -23,15 +23,26 @@ class AuthModel extends ChangeNotifier {
   static UserModel? _userModel;
 
   AuthModel() {
-    auth.authStateChanges().listen((User? user) {
+    auth.authStateChanges().listen((User? user) async { // Added async
       print('recieved Changes: user = $user');
       _user = user;
-      _userModel = UserModel(
-        uid: user?.uid ?? '',
-        username: user?.displayName ?? '',
-        firebaseUser: user!,
-        email: user.email ?? '',
-      );
+      if (user != null) {
+        // Fetch user profile from database when auth state changes to logged in
+        _userModel = await UserDatabaseHandler.getUserProfile(user.uid);
+        if (_userModel == null) {
+          // If profile not found in DB, create a basic one (e.g., for new users)
+          _userModel = UserModel(
+            uid: user.uid,
+            username: user.displayName ?? user.email ?? '新用戶',
+            email: user.email ?? '',
+            firebaseUser: user,
+          );
+          // If profile not found, create it in the database
+          _userModel = await UserDatabaseHandler.createUserProfile(_userModel!); 
+        }
+      } else {
+        _userModel = null; // Clear user model on logout
+      }
       notifyListeners();
     });
   }
@@ -48,27 +59,31 @@ class AuthModel extends ChangeNotifier {
 
   Future<LoginError> login(String email, String password) async {
     try {
-      await auth.signInWithEmailAndPassword(email: email, password: password);
-      _userModel = await UserDatabaseHandler.getUserProfile(user!.uid);
+      UserCredential userCredential = await auth.signInWithEmailAndPassword(email: email, password: password);
+      _user = userCredential.user; // Ensure _user is updated immediately
+      if (_user != null) {
+        _userModel = await UserDatabaseHandler.getUserProfile(_user!.uid);
+        if (_userModel == null) {
+          print('User profile not found for uid: ${_user!.uid}');
+          print('user email:${_user!.email}');
+          print('username: ${_user!.displayName}');
+
+          return LoginError(Errorlog.basic_error, '用戶資料未找到，請註冊或聯繫管理員');
+        }
+      }
+      print('Login successful, userModel: $_userModel');
       return LoginError(Errorlog.success, 'Login successful');
     } catch (e) {
+      print('Login error details: $e, Type: ${e.runtimeType}');
       if (e is FirebaseAuthException) {
         if (e.message!.contains('network error')) {
-          print('Network error detected');
-
-          // Handle network error
           return LoginError(Errorlog.network_error, '錯誤：請檢查網路連線');
         } else if (e.message!.contains('no user record corresponding')) {
-          print('not register yet');
-          // Handle network error
           return LoginError(Errorlog.not_register_error, '錯誤：此帳號尚未註冊');
         } else {
-          print('Firebase Login Error : ${e.message}');
-          // Handle other errors
           return LoginError(Errorlog.firebase_error, '錯誤: 請檢查帳號或密碼');
         }
       } else {
-        print('Basic Login Error : $e');
         return LoginError(Errorlog.basic_error, '錯誤: $e');
       }
     }
@@ -90,9 +105,22 @@ class AuthModel extends ChangeNotifier {
         password: password,
       );
       UserCredential result = await auth.signInWithCredential(credential);
-      await user?.updateDisplayName(username);
+      _user = result.user; // Ensure _user is updated after sign in with credential
+      await _user?.updateDisplayName(username);
+      
+      // 在註冊成功後，將使用者資料儲存到資料庫
+      if (_user != null) {
+        UserModel newUser = UserModel(
+          uid: _user!.uid,
+          username: username,
+          email: email,
+          firebaseUser: _user!,
+        );
+        await UserDatabaseHandler.createUserProfile(newUser);
+        _userModel = newUser; // 更新 AuthModel 中的 _userModel
+      }
+
       notifyListeners();
-      Navigator.pop(context);
     } catch (e) {
       print('register Error: $e');
     }

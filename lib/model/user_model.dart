@@ -6,9 +6,9 @@ import 'package:devjam_tw2025/auth.dart';
 
 class UserModel {
   final String uid;
-  final User firebaseUser;
   final String username;
   final String email;
+  final User? firebaseUser; // Make firebaseUser nullable
   String? gender;
   String? age;
   String? height;
@@ -17,8 +17,8 @@ class UserModel {
   UserModel({
     required this.uid,
     required this.username,
-    required this.firebaseUser,
     required this.email,
+    this.firebaseUser, // Make firebaseUser optional in constructor
     this.gender,
     this.age,
     this.height,
@@ -41,14 +41,14 @@ class UserModel {
   // Convert Map to UserModel
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
-      uid: map['uid'],
-      username: map['username'],
-      firebaseUser: map['firebaseUser'],
-      email: map['email'],
-      gender: map['gender'],
-      age: map['age'],
-      height: map['height'],
-      weight: map['weight'],
+      uid: map['uid'] as String,
+      username: map['username'] as String,
+      email: map['email'] as String,
+      // firebaseUser is not stored in the database, so it's not part of fromMap
+      gender: map['gender'] as String?,
+      age: map['age'] as String?,
+      height: map['height'] as String?,
+      weight: map['weight'] as String?,
     );
   }
 }
