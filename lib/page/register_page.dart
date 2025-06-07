@@ -69,9 +69,6 @@
 // }
 //
 // class CustomDrawer extends StatelessWidget {
-//   final Function(int, String) onItemTapped;
-//   final int selectedIndex;
-//
 //   const CustomDrawer({
 //     super.key,
 //     required this.onItemTapped,

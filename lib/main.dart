@@ -2,20 +2,28 @@ import 'dart:io';
 import 'package:devjam_tw2025/pages/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:http/http.dart';
 import 'package:provider/provider.dart';
 import 'auth.dart';
-import 'data/today data.dart';
+import 'package:devjam_tw2025/data/today_data.dart';
 import 'pages/food_record.dart';
 import 'pages/fitness_record.dart';
 import 'pages/exposure_trend.dart';
-import 'pages/pollution_distribution.dart';
+import 'package:devjam_tw2025/pages/pollution_distribution.dart';
+import 'package:devjam_tw2025/page/all_page.dart';
 import 'pages/traffic_record.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:devjam_tw2025/widgets/custom_drawer.dart';
+import 'package:devjam_tw2025/pages/pollution_exposure_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await Supabase.initialize(
+    url: 'https://your-supabase-url.supabase.co', // 替換為您的 Supabase URL
+    anonKey: 'your-anon-key', // 替換為您的 Supabase anon key
+  );
   runApp(
     MultiProvider(
       providers: [
@@ -52,7 +60,7 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.grey[100],
       ),
       debugShowCheckedModeBanner: false,
-      home: const HomeScreen(),
+      home: const LoginPage(), // 啟動時顯示登錄頁面
     );
   }
 }
@@ -92,11 +100,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadRecords() async {
-    // Placeholder: Replace with API call if records are fetched from server
-    if (mounted) {
-      setState(() {
-        _todaysRecords = []; // Clear or fetch from server if implemented
-      });
+    final supabase = Supabase.instance.client;
+    try {
+      final response = await supabase
+          .from('exposure_records') // 假設您的表名為 exposure_records
+          .select()
+          .eq('uid', Provider.of<AuthModel>(context, listen: false).user?.uid as String? ?? '')
+          .get();
+      if (response.data != null) {
+        setState(() {
+          _todaysRecords = (response.data as List).map((json) => ExposureRecord.fromJson(json)).toList();
+        });
+      }
+    } catch (e) {
+      print('載入記錄失敗: $e');
     }
   }
 
@@ -142,6 +159,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     String? imagePath;
 
     final ImagePicker _picker = ImagePicker();
+    final String? uid = Provider.of<AuthModel>(context, listen: false).user?.uid;
 
     showDialog(
       context: context,
@@ -263,29 +281,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     final exerciseLocation = exerciseLocationController.text.trim();
                     final duration = int.tryParse(durationController.text.trim());
 
-                    if (dialogCategory != null && note.isNotEmpty) {
+                    if (dialogCategory != null && note.isNotEmpty && uid != null) {
                       final newRecord = ExposureRecord(
-                        uid: 'user123', // Replace with actual UID from AuthModel or Firebase
+                        uid: uid,
                         eventType: dialogCategory!,
                         note: note,
                         transportMode: dialogCategory == '交通' ? transportMode : null,
                         startTime: DateTime.now().toIso8601String(),
-                        endTime: null, // Can be set if end time is needed
+                        endTime: null,
                         exerciseLocation: dialogCategory == '健身' ? exerciseLocation : null,
                         intensity: dialogCategory == '健身' ? intensity : null,
                         durationMinutes: (dialogCategory == '健身' || dialogCategory == '交通') ? duration : null,
-                        imagePath: dialogCategory == '食物' ? imagePath : null, // Added imagePath
+                        imagePath: dialogCategory == '食物' ? imagePath : null,
                       );
                       try {
-                        await ExposureRecord.addRecord(newRecord);
+                        final updatedRecord = await ExposureRecord.addRecord(newRecord);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('新增成功: ${newRecord.eventType} - ${newRecord.note}')),
+                            SnackBar(content: Text('新增成功: ${updatedRecord.eventType} - ${updatedRecord.note}')),
                           );
+                          if (updatedRecord.photoUrl != null) {
+                            print('Photo URL to save: ${updatedRecord.photoUrl}');
+                          }
                           Navigator.pop(context);
+                          await _initializeAndLoadData(); // 刷新數據
                         }
                       } catch (e) {
-                        print('Debug - Webhook Error: $e');
+                        print('Debug - Upload Error: $e');
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('新增失敗，請檢查輸入或重試')),
@@ -295,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     } else {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('請填寫所有必要字段')),
+                          const SnackBar(content: Text('請填寫所有必要字段或確保已登錄')),
                         );
                       }
                     }
@@ -325,10 +347,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       text: record.durationMinutes?.toString() ?? '',
     );
     String? intensity = record.intensity;
-    String? imagePath = record.imagePath; // Fixed: Now valid due to added imagePath
+    String? imagePath = record.imagePath;
 
     final ImagePicker _picker = ImagePicker();
     String selectedCategory = record.eventType;
+    final String? uid = Provider.of<AuthModel>(context, listen: false).user?.uid;
 
     showDialog(
       context: context,
@@ -451,9 +474,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     final exerciseLocation = exerciseLocationController.text.trim();
                     final duration = int.tryParse(durationController.text.trim());
 
-                    if (note.isNotEmpty) {
+                    if (note.isNotEmpty && uid != null) {
                       final updatedRecord = ExposureRecord(
-                        uid: record.uid,
+                        uid: uid,
                         eventType: selectedCategory,
                         note: note,
                         transportMode: selectedCategory == '交通' ? transportMode : null,
@@ -462,18 +485,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         exerciseLocation: selectedCategory == '健身' ? exerciseLocation : null,
                         intensity: selectedCategory == '健身' ? intensity : null,
                         durationMinutes: (selectedCategory == '健身' || selectedCategory == '交通') ? duration : null,
-                        imagePath: selectedCategory == '食物' ? imagePath ?? record.imagePath : null, // Updated
+                        imagePath: selectedCategory == '食物' ? imagePath ?? record.imagePath : null,
                       );
                       try {
-                        await ExposureRecord.addRecord(updatedRecord);
+                        final result = await ExposureRecord.addRecord(updatedRecord);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('編輯成功: ${updatedRecord.eventType} - ${updatedRecord.note}')),
+                            SnackBar(content: Text('編輯成功: ${result.eventType} - ${result.note}')),
                           );
+                          if (result.photoUrl != null) {
+                            print('Photo URL to save: ${result.photoUrl}');
+                          }
                           Navigator.pop(context);
+                          await _initializeAndLoadData(); // 刷新數據
                         }
                       } catch (e) {
-                        print('Debug - Webhook Error: $e');
+                        print('Debug - Upload Error: $e');
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('編輯失敗，請重試')),
@@ -483,7 +510,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     } else {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('請填寫所有必要字段')),
+                          const SnackBar(content: Text('請填寫所有必要字段或確保已登錄')),
                         );
                       }
                     }
@@ -506,15 +533,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _deleteRecord(int id) async {
-    // Placeholder: Implement delete logic via Webhook if supported by the server
-    print('Delete record with id: $id');
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase
+          .from('exposure_records')
+          .delete()
+          .eq('id', id) // 假設每個記錄有 id 欄位
+          .get();
+      await _initializeAndLoadData();
+    } catch (e) {
+      print('刪除記錄失敗: $e');
+    }
   }
 
   void _editRecord(ExposureRecord record) {
     _showEditTaskDialog(record);
   }
 
-  void _onDrawerItemTapped(int index) {
+  void _onDrawerItemTapped(int index, String title) {
     if (index < _getPages().length) {
       setState(() {
         _selectedIndex = index;
@@ -536,6 +572,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ? pages[_selectedIndex]
           : const Center(child: Text("頁面不存在")),
       drawer: CustomDrawer(
+        authModel: Provider.of<AuthModel>(context),
+        onLogout: () async {
+          await Provider.of<AuthModel>(context, listen: false).logout();
+          if (mounted) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginPage()));
+          }
+        },
         onItemTapped: _onDrawerItemTapped,
         selectedIndex: _selectedIndex,
       ),
@@ -544,234 +587,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         backgroundColor: Theme.of(context).colorScheme.secondary,
         child: const Icon(Icons.add),
       ),
-    );
-  }
-}
-
-class PollutionExposureScreen extends StatelessWidget {
-  final List<ExposureRecord> records;
-  final Function(int) onDelete;
-  final Function(ExposureRecord) onEdit;
-
-  const PollutionExposureScreen({
-    super.key,
-    required this.records,
-    required this.onDelete,
-    required this.onEdit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 20),
-          Text(
-            '今日汙染暴露',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: records.isEmpty
-                ? const Center(child: Text('今日尚無紀錄，點擊右下角按鈕新增。'))
-                : ListView.builder(
-              itemCount: records.length,
-              itemBuilder: (context, index) {
-                final record = records[index];
-                final IconData iconData;
-                switch (record.eventType) {
-                  case '食物':
-                    iconData = Icons.restaurant;
-                    break;
-                  case '交通':
-                    iconData = Icons.directions_car;
-                    break;
-                  case '健身':
-                    iconData = Icons.fitness_center;
-                    break;
-                  default:
-                    iconData = Icons.help_outline;
-                }
-                return ExposureCard(
-                  icon: iconData,
-                  title: record.note ?? '無標題',
-                  subtitle: '${record.durationMinutes != null ? '時間: ${record.durationMinutes} 分鐘' : ''}'
-                      '${record.intensity != null ? ' | 強度: ${record.intensity}' : ''}'
-                      '${record.transportMode != null ? ' | 交通: ${record.transportMode}' : ''}'
-                      '${record.exerciseLocation != null ? ' | 地點: ${record.exerciseLocation}' : ''}'
-                      '${record.imagePath != null ? ' | 有圖片' : ''}', // Added imagePath check
-                  onDelete: () => onDelete(index), // Use index as placeholder
-                  onEdit: () => onEdit(record),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class ExposureCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onDelete;
-  final VoidCallback onEdit;
-
-  const ExposureCard({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onDelete,
-    required this.onEdit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ListTile(
-        leading: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 32),
-        title: Text(title, style: Theme.of(context).textTheme.titleMedium),
-        subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.blueAccent),
-              tooltip: '編輯紀錄',
-              onPressed: onEdit,
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-              tooltip: '刪除紀錄',
-              onPressed: onDelete,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class CustomDrawer extends StatelessWidget {
-  final Function(int) onItemTapped;
-  final int selectedIndex;
-
-  const CustomDrawer({
-    super.key,
-    required this.onItemTapped,
-    required this.selectedIndex,
-  });
-
-  Widget _buildPngIcon(String assetPath) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(
-        minWidth: 30,
-        minHeight: 30,
-        maxWidth: 30,
-        maxHeight: 30,
-      ),
-      child: Image.asset(
-        assetPath,
-        width: 28,
-        height: 28,
-        fit: BoxFit.contain,
-        errorBuilder: (BuildContext context, error, stackTrace) {
-          return const Icon(Icons.error, size: 28, color: Colors.red);
-        },
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondary,
-            ),
-            child: const Text(
-              '使用者名稱',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          _buildDrawerItem(
-            context,
-            index: 0,
-            icon: const Icon(Icons.home),
-            title: '今日汙染暴露',
-          ),
-          _buildDrawerItem(
-            context,
-            index: 1,
-            icon: _buildPngIcon('assets/icons/icons8-increase-64.png'),
-            title: '暴露趨勢圖',
-          ),
-          _buildDrawerItem(
-            context,
-            index: 2,
-            icon: _buildPngIcon('assets/icons/icons8-kitchen-50.png'),
-            title: '食物紀錄',
-          ),
-          _buildDrawerItem(
-            context,
-            index: 3,
-            icon: _buildPngIcon('assets/icons/icons8-car-50.png'),
-            title: '交通紀錄',
-          ),
-          _buildDrawerItem(
-            context,
-            index: 4,
-            icon: _buildPngIcon('assets/icons/icons8-weightlifting-50.png'),
-            title: '健身紀錄',
-          ),
-          _buildDrawerItem(
-            context,
-            index: 5,
-            icon: _buildPngIcon('assets/icons/icons8-pie-chart-30.png'),
-            title: '汙染分布圖',
-          ),
-          _buildDrawerItem(
-            context,
-            index: 6,
-            icon: _buildPngIcon('assets/icons/icons8-user-24.png'),
-            title: '行為建議',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerItem(
-      BuildContext context, {
-        required int index,
-        required Widget icon,
-        required String title,
-      }) {
-    return ListTile(
-      leading: icon,
-      title: Text(
-        title,
-        style: TextStyle(
-          color: selectedIndex == index ? Theme.of(context).colorScheme.primary : Colors.black87,
-          fontWeight: selectedIndex == index ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-      selected: selectedIndex == index,
-      selectedTileColor: Colors.blueGrey.withOpacity(0.1),
-      onTap: () => onItemTapped(index),
     );
   }
 }
