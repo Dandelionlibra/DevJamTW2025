@@ -12,34 +12,55 @@ class UserDatabaseHandler {
 
   static Future<void> saveUserProfile(UserModel user) async {
     final url = Uri.parse(updateDatabaseUrl);
-    final response = await HttpClient().postUrl(url);
-    response.headers.set('Content-Type', 'application/json');
-    response.add(utf8.encode(json.encode(user.toMap())));
-    final HttpClientResponse httpResponse = await response.close();
-    if (httpResponse.statusCode != 200) {
-      throw Exception(
-        'Failed to save user profile: ${httpResponse.statusCode}',
-      );
+    final request = await HttpClient().postUrl(url);
+    request.headers.set('Content-Type', 'application/json');
+    request.add(utf8.encode(json.encode(user.toMap())));
+    final response = await request.close();
+    if (response.statusCode != 200) {
+      throw Exception('Failed to save user profile: ${response.statusCode}');
     }
   }
 
   static Future<UserModel?> getUserProfile(String uid) async {
-    final url = Uri.parse(getDatabaseUrl);
-    final response = await HttpClient().getUrl(
-      Uri.https(url.toString(), '', {'uid': uid}),
-    );
-    final HttpClientResponse httpResponse = await response.close();
-    if (httpResponse.statusCode == 200) {
-      final String jsonString = await httpResponse
-          .transform(utf8.decoder)
-          .join();
-      return UserModel.fromMap(json.decode(jsonString));
-    } else if (httpResponse.statusCode == 404) {
-      return null; // User not found
+    final url = Uri.parse('$getDatabaseUrl?uid=$uid');
+    final request = await HttpClient().getUrl(url);
+    final response = await request.close();
+    String? jsonString; // 提升到方法級別
+
+    if (response.statusCode == 200) {
+      jsonString = await response.transform(utf8.decoder).join();
+      try {
+        if (jsonString.isEmpty || (!jsonString.startsWith('{') && !jsonString.startsWith('['))) {
+          print('Raw response is not valid JSON: $jsonString');
+          return null;
+        }
+        final Map<String, dynamic> data = json.decode(jsonString) as Map<String, dynamic>;
+        return UserModel.fromMap(data);
+      } catch (e) {
+        print('Error decoding JSON: $e, Raw response: $jsonString');
+        return null;
+      }
+    } else if (response.statusCode == 404) {
+      return null;
     } else {
-      throw Exception(
-        'Failed to fetch user profile: ${httpResponse.statusCode}',
-      );
+      jsonString = await response.transform(utf8.decoder).join(); // 獲取回應內容
+      throw Exception('Failed to fetch user profile: ${response.statusCode}, Response: $jsonString');
+    }
+  }
+
+  static Future<UserModel> createUserProfile(UserModel user) async {
+    final url = Uri.parse(registerDatabaseUrl);
+    final request = await HttpClient().postUrl(url);
+    request.headers.set('Content-Type', 'application/json');
+    request.add(utf8.encode(json.encode(user.toMap())));
+    final response = await request.close();
+    if (response.statusCode == 200) {
+      print('User profile created successfully! Status: ${response.statusCode}');
+      return user;
+    } else {
+      final responseBody = await response.transform(utf8.decoder).join();
+      print('Failed to create user profile. Status: ${response.statusCode}, Response: $responseBody');
+      throw Exception('Failed to create user profile: ${response.statusCode}, Response: $responseBody');
     }
   }
 }

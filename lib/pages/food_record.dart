@@ -6,10 +6,7 @@ class FoodRecordScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-      ),
+     
       body: const Center(
         child: Text(
           '食物紀錄 - 這裡可以顯示食物攝取清單',
