@@ -22,7 +22,7 @@ INSERT INTO seafood_items ( id, category_id, name, scientific_name, pollutant_id
 ( 21, 1, '歐洲比目魚', 'Plaice', 1, 6.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
 ( 22, 1, '明太魚', 'Pollock', 1, 3.100, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
 ( 23, 1, '鮭魚', 'Salmon', 1, 2.200, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
-( 24, 1, '沙丁魚', 'Sardine',1, 1.300, 2, 'FDA&EFSA 魚類汞含量資料彙編');
+( 24, 1, '沙丁魚', 'Sardine',1, 1.300, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
 ( 25, 1, '扇貝', 'Scallop', 1, 0.300, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
 ( 26, 1, '鯡鯉', 'Shad', 1, 10.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
 ( 27, 1, '蝦', 'Shrimp', 1, 1.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
@@ -242,3 +242,43 @@ INSERT INTO seafood_items (
     61, 1, '墨西哥灣鯛', 'Tilefish (Gulf)',
     1, 145.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'
 );
+
+
+
+
+INSERT INTO food_items ( id, name, scientific_name, pollutant_id, average_level, unit_id, source ) VALUES 
+( 1, '鯷魚', 'Anchovy', 1, 2.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 2, '大西洋石首魚', 'Atlantic croaker', 1, 7.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 3, '大西洋鯖魚', 'Atlantic mackerel', 1, 5.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 4, '黑海鱸', 'Black sea bass', 1, 16.700, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 5, '油魚', 'Butterfish', 1, 6.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 6, '鯰魚', 'Catfish', 1, 2.500, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 7, '蛤蜊', 'Clam', 1, 0.900, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 8, '鱈魚', 'Cod', 1, 11.100, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 9, '螃蟹', 'Crab', 1, 6.500, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 10, '小龍蝦', 'Crawfish', 1, 3.300, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 11, '比目魚', 'Flounder', 1, 5.000, 2, 'FDA&EFSA 魚類汞含量資料彙編');
+( 12, '黑線鱈', 'Haddock', 1, 5.500, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 13, '無鬚鱈', 'Hake', 1, 7.900, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 14, '鯡魚', 'Herring', 1, 8.400, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 15, '美洲與刺龍蝦', 'Lobster', 1, 10.700, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 16, '烏魚', 'Mullet', 1, 5.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 17, '牡蠣', 'Oyster', 1, 1.200, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 18, '太平洋小鯖魚', 'Pacific chub mackerel', 1, 9.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 19, '淡水與海鱸魚', 'Perch', 1, 12.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 20, '梭魚', 'Pickerel', 1, 11.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 21, '歐洲比目魚', 'Plaice', 1, 6.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 22, '明太魚', 'Pollock', 1, 3.100, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 23, '鮭魚', 'Salmon', 1, 2.200, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 24, '沙丁魚', 'Sardine',1, 1.300, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 25, '扇貝', 'Scallop', 1, 0.300, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 26, '鯡鯉', 'Shad', 1, 10.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 27, '蝦', 'Shrimp', 1, 1.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 28, '魟魚', 'Skate', 1, 14.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 29, '胡瓜魚', 'Smelt', 1, 4.000, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 30, '龍脷魚', 'Sole', 1, 5.600, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 31, '魷魚', 'Squid', 1, 2.400, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 32, '吳郭魚', 'Tilapia', 1, 1.300, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 33, '淡水鱒魚', 'Trout', 1, 7.100, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 34, '罐裝淺肉鮪魚', 'Tuna, canned light', 1, 12.800, 2, 'FDA&EFSA 魚類汞含量資料彙編'),
+( 35, '白魚', 'Whitefish', 1, 8.900, 2, 'FDA&EFSA 魚類汞含量資料彙編');

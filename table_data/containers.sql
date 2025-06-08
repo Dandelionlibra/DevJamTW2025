@@ -23,11 +23,11 @@ CREATE TABLE plastic_types (
 
 INSERT INTO plastic_types ( code, abbreviation, pollutant_release_cold_mg, pollutant_release_hot_mg) VALUES
 (1, 'PET', 0, 80000),
-(2, 'HDPE', 0, NULL),
-(3, 'PVC', NULL, NULL),
+(2, 'HDPE', 0, 100000),
+(3, 'PVC', 0, 10000),
 (4, 'LDPE', 20, 79500),
 (5, 'PP', 20, 4250),
-(6, 'PS', NULL, 170000),
+(6, 'PS', 0, 170000),
 (7, 'OTHER', NULL, NULL);
 select * from plastic_types;
 
